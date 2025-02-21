@@ -7,9 +7,15 @@ const dbConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     server: process.env.DB_SERVER,
+    port: 1433,
     database: process.env.DB_NAME,
+    pool: {
+        max: 10,
+        min: 0,
+        idleTimeoutMillis: 30000
+    },
     options: {
-        encrypt: true, // Use encryption (set false if using local SQL Server without SSL)
+        encrypt: false, // Use encryption (set false if using local SQL Server without SSL)
         trustServerCertificate: true, // Required for self-signed certificates
         connectionTimeout: 30000, // 30 seconds
         requestTimeout: 30000, // 30 seconds
@@ -27,6 +33,7 @@ const connectToDb = async () => {
         throw error;
     }
 };
+connectToDb();
 
 // Helper function to execute a raw SQL query
 const executeQuery = async (query, params = []) => {
