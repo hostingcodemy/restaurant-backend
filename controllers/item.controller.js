@@ -601,15 +601,15 @@ export const getTax = async (req, res) => {
     };
 
     try {
-        const taxes = await gettax(); // Await the result of the async function
+        const taxes = await getTax(); // Await the result of the async function
         res.status(200).json({
             message: "taxes fetched successfully", // Success message
             data: taxes, // Send the result (UOM details) in the response
         });
     } catch (error) {
-        console.error("Error fetching locations:", error); // Improved error logging
+        console.error("Error fetching taxes:", error); // Improved error logging
         res.status(500).json({
-            message: "Error fetching locations", // Error message
+            message: "Error fetching taxes", // Error message
             error: error.message, // Optionally send the error message for debugging
         });
     }
