@@ -1,6 +1,180 @@
 import { executeQuery, connectToDb, closeConnection, fetchData } from "../config/db.js";
 import sql from "mssql";
 
+
+// ====================================location master handler=====================================
+export const itemMasterHandler = async (req, res) => {
+    const { compCode, alias, desc, desc1, uom, recUom, recUomConv, recRate, salUom, salUomConv, salerate, itemTypeName, ItemtypeCode, mrp, itemGroup, barCode, cusdayItem, cusPurStock, subItemCD, itemSubTypeCode, itemGroupID, itemSubGroupID, itemSubTypeID, itemTypeID, createdby, createddate, HSNcode, conversionUnit, conversionQTY, conUnit, conQty } = req.body;
+
+    if (!compCode || !alias || !desc || !desc1 || !uom || !recUom || !recUomConv || !recRate ||
+        !salUom || !salUomConv || !salerate || !itemTypeName || !ItemtypeCode || !mrp || !itemGroup ||
+        !barCode || !cusdayItem || !cusPurStock || !subItemCD || !itemSubTypeCode || !itemGroupID ||
+        !itemSubGroupID || !itemSubTypeID || !itemTypeID || !createdby || !createddate || !HSNcode ||
+        !conversionUnit || !conversionQTY || !conUnit || !conQty) {
+        return res.status(200).json({
+            status: false,
+            message: "all fields are required"
+        })
+    }
+
+    // Function to get the last generated ID
+    const getLastCode = async () => {
+        const query = `
+            SELECT TOP 1 ITEMCD FROM M_ITEM ORDER BY ITEMCD DESC
+        `;
+
+        const result = await fetchData(query);
+
+        if (result.length > 0) {
+            return result[0].ITEMCD;
+        }
+
+        return null; // No previous code found
+    };
+
+    // Function to generate the next code
+    const generateNextCode = async () => {
+        const lastCode = await getLastCode();
+
+        if (!lastCode) {
+            return "0000001"; // First code if no records exist
+        }
+
+        // Convert to number, increment, and pad with leading zeros
+        const lastNumber = parseInt(lastCode, 10);
+        const nextNumber = lastNumber + 1;
+
+        return nextNumber.toString().padStart(7, "0"); // Ensures "001", "002", etc.
+    };
+
+    const getFinancialYear = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1; // Months are 0-based in JS
+
+        if (month < 4) {
+            // If before April, financial year is (prevYear-currentYear)
+            return `${year - 1}-${year.toString().slice(-2)}`;
+        } else {
+            // If April or later, financial year is (currentYear-nextYear)
+            return `${year}-${(year + 1).toString().slice(-2)}`;
+        }
+    };
+
+    // Create a new item
+    const createItem = async (code, compCode, alias, desc, desc1, uom, recUom, recUomConv, recRate, salUom, salUomConv, salerate, itemTypeName, ItemtypeCode, mrp, itemGroup, barCode, cusdayItem, cusPurStock, subItemCD, itemSubTypeCode, itemGroupID, itemSubGroupID, itemTypeID, createdby, itemSubTypeID, HSNcode, conversionUnit, conversionQTY, conUnit, conQty) => {
+        try {
+            const pool = await connectToDb();
+            const date = new Date(); // Use JavaScript Date object
+            const today = new Date().toLocaleString(); // Use JavaScript Date object
+            const finyr = getFinancialYear();
+
+            // Define the SQL query and parameters
+            const query = "INSERT INTO M_ITEM (ITEMCD, COMPCODE, ALIAS, DESCR, DESCR1, UOM, RECUOM, RECUOMCONV, RECRATE, SALUOM, SALUOMCONV, SELRATE, FINYR, ITEMTYPENAME, ITEMTYPECODE, MRP, ITEMGROUP, BARCODE, CUS_DAY_ITEM, CUS_PURCHSTOCKSALE_ITEMTYPE, SUBSITEMCD, ITEMSUBTYPECODE, M_ITEMGROUPID, M_ITEMSUBGROUP_ID, M_ITEMSUBTYPE_ID, M_ITEMTYPE_ID, CREATEDBY, CREATEDDATE, ULM, DLM, ACTIVE, HSNCODE, CONVERSIONUNIT, CONVERSIONQTY, CONUNIT, CONQTY) VALUES (@code, @compCode, @alias, @desc, @desc1, @uom, @recUom, @recUomConv, @recRate, @salUom, @salUomConv, @salerate, @finyr, @itemTypeName, @ItemtypeCode, @mrp, @itemGroup, @barCode, @cusdayItem, @cusPurStock, @subItemCD, @itemSubTypeCode, @itemGroupID, @itemSubGroupID, @itemSubTypeID, @itemTypeID, @createdby, @createdDate, @ulm, @dlm, @active, @HSNcode, @conversionUnit, @conversionQTY, @conUnit, @conQty)";
+
+            // Execute the query with properly bound parameters
+            const result = await pool.request()
+                .input("code", sql.VarChar, code)
+                .input("compCode", sql.VarChar, compCode)
+                .input("alias", sql.VarChar, alias)
+                .input("desc", sql.VarChar, desc)
+                .input("desc1", sql.VarChar, desc1)
+                .input("uom", sql.VarChar, uom)
+                .input("recUom", sql.VarChar, recUom)
+                .input("recUomConv", sql.Decimal, recUomConv)
+                .input("recRate", sql.Decimal, recRate)
+                .input("salUom", sql.VarChar, salUom)
+                .input("salUomConv", sql.Decimal, salUomConv)
+                .input("salerate", sql.Decimal, salerate)
+                .input("finyr", sql.VarChar, finyr)
+                .input("itemTypeName", sql.VarChar, itemTypeName)
+                .input("ItemtypeCode", sql.VarChar, ItemtypeCode)
+                .input("mrp", sql.Decimal, mrp)
+                .input("itemGroup", sql.VarChar, itemGroup)
+                .input("barCode", sql.VarChar, barCode)
+                .input("cusdayItem", sql.VarChar, cusdayItem)
+                .input("cusPurStock", sql.VarChar, cusPurStock)
+                .input("subItemCD", sql.VarChar, subItemCD)
+                .input("itemSubTypeCode", sql.VarChar, itemSubTypeCode)
+                .input("itemGroupID", sql.VarChar, itemGroupID)
+                .input("itemSubGroupID", sql.Int, itemSubGroupID)
+                .input("itemSubTypeID", sql.VarChar, itemSubTypeID)
+                .input("itemTypeID", sql.Int, itemTypeID)
+                .input("createdby", sql.VarChar, createdby)
+                .input("HSNcode", sql.VarChar, HSNcode)
+                .input("conversionUnit", sql.VarChar, conversionUnit)
+                .input("conversionQTY", sql.Decimal, conversionQTY)
+                .input("conUnit", sql.VarChar, conUnit)
+                .input("conQty", sql.Decimal, conQty)
+                .input("active", sql.Bit, 1)
+                .input("createdDate", sql.DateTime, date)
+                .input("ulm", sql.VarChar, today)
+                .input("dlm", sql.DateTime, date)
+                .query(query);
+            return result.rowsAffected;
+
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    };
+
+    try {
+        // Generate the next ID
+        const nextCode = await generateNextCode();
+
+        // Call the function to create the item
+        const result = await createItem(nextCode, compCode, alias, desc, desc1, uom, recUom, recUomConv, recRate, salUom, salUomConv, salerate, itemTypeName, ItemtypeCode, mrp, itemGroup, barCode, cusdayItem, cusPurStock, subItemCD, itemSubTypeCode, itemGroupID, itemSubGroupID, itemTypeID, createdby, createddate, HSNcode, conversionUnit, conversionQTY, conUnit, conQty);
+        if (result) {
+            return res.status(200).json({
+                message: "Item inserted",
+                data: { nextCode, compCode, alias, desc, desc1, uom, recUom, recUomConv, recRate, salUom, salUomConv, salerate, itemTypeName, ItemtypeCode, mrp, itemGroup, barCode, cusdayItem, cusPurStock, subItemCD, itemSubTypeCode, itemGroupID, itemSubGroupID, itemTypeID, createdby, createddate, HSNcode, conversionUnit, conversionQTY, conUnit, conQty },
+            });
+        }
+        else {
+            return res.status(200).json({
+                status: false,
+                message: "item insertion failed",
+            });
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            message: "Error processing the request",
+        });
+    } finally {
+        // Ensure the connection is closed
+        await closeConnection();
+    }
+};
+
+
+// ====================================get location handler=====================================
+export const getItems = async (req, res) => {
+    // Function to fetch all UOMs from the database
+    const getLoc = async () => {
+        const query = `
+            SELECT * FROM M_LOCATION
+        `;
+        const result = await fetchData(query); // Fetch data using the query
+        return result;
+    };
+
+    try {
+        const locations = await getLoc(); // Await the result of the async function
+        res.status(200).json({
+            message: "Locations fetched successfully", // Success message
+            data: locations, // Send the result (UOM details) in the response
+        });
+    } catch (error) {
+        console.error("Error fetching locations:", error); // Improved error logging
+        res.status(500).json({
+            message: "Error fetching locations", // Error message
+            error: error.message, // Optionally send the error message for debugging
+        });
+    }
+};
+
+
 // ====================================item group handler=====================================
 export const itemGroupHandler = async (req, res) => {
     const { name, code } = req.body;
@@ -52,8 +226,8 @@ export const itemGroupHandler = async (req, res) => {
 
             // Define the SQL query
             const query = `
-                INSERT INTO M_ITEMGROUP (GROUPNAME, GROUPCODE, M_ITEMGROUPID, CREATEDDATE, ULM, DLM) 
-                VALUES (@name, @code, @nextId, @createdDate, @ulm, @dlm)
+                INSERT INTO M_ITEMGROUP (GROUPNAME, GROUPCODE, M_ITEMGROUPID, CREATEDDATE, ULM, DLM, ACTIVE) 
+                VALUES (@name, @code, @nextId, @createdDate, @ulm, @dlm, @active)
             `;
 
             // Execute the query with properly bound parameters
@@ -64,6 +238,7 @@ export const itemGroupHandler = async (req, res) => {
                 .input("createdDate", sql.DateTime, date)
                 .input("ulm", sql.DateTime, date)
                 .input("dlm", sql.DateTime, date)
+                .input("active", sql.Bit, 1)
                 .query(query);
 
             return result.rowsAffected;
@@ -175,18 +350,20 @@ export const itemSubGroupHandler = async (req, res) => {
             const shcode = name.slice(0, 2);
 
             // Define the SQL query and parameters
-            const query = "INSERT INTO M_ITEMSUBGROUP (M_ITEMSUBGROUP_ID, CODE, SHORTCODE, ACCD, M_ITEMGROUPID, CREATEDDATE, ULM, DLM) VALUES (@nextId, @code, @shortcode, @accode, @gid, @createdDate, @ulm, @dlm)";
+            const query = "INSERT INTO M_ITEMSUBGROUP (M_ITEMSUBGROUP_ID, CODE, DESCR, SHORTCODE, ACCD, M_ITEMGROUPID, CREATEDDATE, ULM, DLM, ACTIVE) VALUES (@nextId, @code, @descr, @shortcode, @accode, @gid, @createdDate, @ulm, @dlm, @active)";
 
             // Execute the query with properly bound parameters
             const result = await pool.request()
                 .input("nextId", sql.VarChar, nextId)
                 .input("code", sql.VarChar, code)
+                .input("descr", sql.VarChar, name)
                 .input("shortcode", sql.VarChar, shcode)
                 .input("accode", sql.VarChar, accode)
                 .input("gid", sql.VarChar, groupid)
                 .input("createdDate", sql.DateTime, date)
                 .input("ulm", sql.DateTime, date)
                 .input("dlm", sql.DateTime, date)
+                .input("active", sql.Bit, 1)
                 .query(query);
             return result.rowsAffected;
 
@@ -251,7 +428,6 @@ export const allItemSubGroup = async (req, res) => {
 // ====================================UOM handler=====================================
 export const itemUOMHandler = async (req, res) => {
     const { name, code } = req.body;
-    console.log(req.body);
 
     if (!name || !code) {
         return res.status(200).json({
@@ -260,28 +436,69 @@ export const itemUOMHandler = async (req, res) => {
         })
     }
 
-    const getUomCode = async (code) => {
-        const query = `SELECT CODE FROM M_UOM WHERE CODE = @param1;`;
-        const result = await fetchData(query, [code]);
-        return result.length > 0 ? result[0].CODE : null;
+    const getUomCode = async () => {
+        const query = `
+            SELECT TOP 1 CODE FROM M_UOM WHERE CODE LIKE '00%' ORDER BY CODE DESC;
+        `;
+
+        const result = await fetchData(query);
+
+        if (result && result.length > 0 && result[0].CODE) {
+            return result[0].CODE.trim(); // Trim in case of extra spaces
+        }
+
+        return null; // No previous code found
     };
 
+    // Function to generate the next code
+    const nextUomCode = async () => {
+        const lastCode = await getUomCode();
+
+        if (!lastCode || isNaN(parseInt(lastCode, 10))) {
+            return "001"; // First code if no records exist or invalid data
+        }
+
+        // Convert to number, increment, and pad with leading zeros
+        const lastNumber = parseInt(lastCode, 10);
+        const nextNumber = lastNumber + 1;
+
+        return nextNumber.toString().padStart(3, "0"); // Ensures "001", "002", etc.
+    };
+
+    const getFinancialYear = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1; // Months are 0-based in JS
+
+        if (month < 4) {
+            // If before April, financial year is (prevYear-currentYear)
+            return `${year - 1}-${year.toString().slice(-2)}`;
+        } else {
+            // If April or later, financial year is (currentYear-nextYear)
+            return `${year}-${(year + 1).toString().slice(-2)}`;
+        }
+    };
+
+
     // Create a new item
-    const createItem = async (name, code) => {
+    const createItem = async (name, code, nextCode) => {
         try {
             const pool = await connectToDb();
             const date = new Date(); // Use JavaScript Date object
+            const finyr = getFinancialYear();
             // Define the SQL query and parameters
-            const query = "INSERT INTO M_UOM (DESCR, CODE, SHORTCODE, CREATEDDATE, ULM, DLM) VALUES (@descr, @code, @shortcode, @createdDate, @ulm, @dlm)";
+            const query = "INSERT INTO M_UOM (DESCR, FINYR, CODE, SHORTCODE, CREATEDDATE, ULM, DLM, ACTIVE) VALUES (@descr, @finyr, @code, @shortcode, @createdDate, @ulm, @dlm, @active)";
 
             // Execute the query with properly bound parameters
             const result = await pool.request()
                 .input("descr", sql.VarChar, name)
-                .input("code", sql.VarChar, code)
+                .input("finyr", sql.VarChar, finyr)
+                .input("code", sql.VarChar, nextCode)
                 .input("shortcode", sql.VarChar, code)
                 .input("createdDate", sql.DateTime, date)
                 .input("ulm", sql.DateTime, date)
                 .input("dlm", sql.DateTime, date)
+                .input("active", sql.Bit, 1)
                 .query(query);
             return result.rowsAffected;
 
@@ -291,31 +508,23 @@ export const itemUOMHandler = async (req, res) => {
     };
 
     try {
-        const isCode = await getUomCode(code);
-        if (isCode) {
-            return res.status(201).json({
-                message: "Unit code is already exists"
-            })
+        const newCode = await nextUomCode();
+
+        // Call the function to create the item
+        const result = await createItem(name, code, newCode);
+
+        if (result) {
+            // Respond with the success message
+            res.status(200).json({
+                message: "Item UOM successfully created",
+                data: { name, code },
+            });
         }
         else {
-
-            // Call the function to create the item
-            const result = await createItem(name, code);
-
-            if (result) {
-                // Respond with the success message
-                res.status(200).json({
-                    message: "Item UOM successfully created",
-                    data: { name, code },
-                });
-            }
-            else {
-                return res.status(200).json({
-                    status: false,
-                    message: "Item UOM insertion failed",
-                });
-            }
-
+            return res.status(200).json({
+                status: false,
+                message: "Item UOM insertion failed",
+            });
         }
     } catch (error) {
         console.error("Error:", error);
@@ -403,7 +612,7 @@ export const locationMasterHandler = async (req, res) => {
             const date = new Date(); // Use JavaScript Date object
 
             // Define the SQL query and parameters
-            const query = "INSERT INTO M_LOCATION (CODE, DESCR, BILLPREFIX, ITEMSUBGRSC, SUSPSALES, ACCD, DEPTID, CUSTOMER, REMARKS, CREATEDDATE, ULM, DLM) VALUES (@code, @name, @billprefix, @subgroup, @sales, @account, @dept, @substore, @remarks, @createdDate, @ulm, @dlm)";
+            const query = "INSERT INTO M_LOCATION (CODE, DESCR, BILLPREFIX, ITEMSUBGRSC, SUSPSALES, ACCD, DEPTID, CUSTOMER, REMARKS, ACTIVE, CREATEDDATE, ULM, DLM) VALUES (@code, @name, @billprefix, @subgroup, @sales, @account, @dept, @substore, @remarks, @active, @createdDate, @ulm, @dlm)";
 
             // Execute the query with properly bound parameters
             const result = await pool.request()
@@ -416,6 +625,7 @@ export const locationMasterHandler = async (req, res) => {
                 .input("dept", sql.VarChar, dept)
                 .input("substore", sql.VarChar, substore)
                 .input("remarks", sql.VarChar, remarks)
+                .input("active", sql.Bit, 1)
                 .input("createdDate", sql.DateTime, date)
                 .input("ulm", sql.DateTime, date)
                 .input("dlm", sql.DateTime, date)
@@ -487,12 +697,12 @@ export const getlocation = async (req, res) => {
 // ====================================tax master handler=====================================
 export const taxMasterHandler = async (req, res) => {
     const { name, ledger, rate, type, scode, exempted, method, fromamt, toamt, parenttax, remarks } = req.body;
-    // if (!name || !ledger || !rate || !type || !scode || !exempted || !method || !fromamt || !toamt || !parenttax || !remarks) {
-    //     return res.status(200).json({
-    //         status: false,
-    //         message: "all fields are required"
-    //     })
-    // }
+    if (!name || !ledger || !rate || !type || !scode || !exempted || !method || !fromamt || !toamt || !parenttax || !remarks) {
+        return res.status(200).json({
+            status: false,
+            message: "all fields are required"
+        })
+    }
 
     // Function to get the last generated ID
     const getLastCode = async () => {
@@ -531,26 +741,28 @@ export const taxMasterHandler = async (req, res) => {
             const date = new Date(); // Use JavaScript Date object
 
             // Define the SQL query and parameters
-            const query = "INSERT INTO M_TAX (TAX_ID, SHORTNAME, DESCR, RATE, TYPE, ACCD, EXEMPTED, PER_AMT_TYPE, FROM_AMT_PER, TO_AMT_PER, P_TAX_ID, REMARKS, CREATEDDATE, ULM, DLM) VALUES (@taxid, @name, @ledger, @rate, @type, @scode, @exempted, @method, @fromamt, @toamt, @parenttax, @remarks, @createdDate, @ulm, @dlm)";
+            const query = "INSERT INTO M_TAX (TAX_ID, SHORTNAME, DESCR, RATE, TYPE, ACCD, EXEMPTED, PER_AMT_TYPE, FROM_AMT_PER, TO_AMT_PER, P_TAX_ID, REMARKS, CREATEDDATE, ULM, DLM, ACTIVE) VALUES (@taxid, @name, @ledger, @rate, @type, @scode, @exempted, @method, @fromamt, @toamt, @parenttax, @remarks, @createdDate, @ulm, @dlm, @active)";
 
             // Execute the query with properly bound parameters
             const result = await pool.request()
                 .input("taxid", sql.VarChar, taxid)
                 .input("name", sql.VarChar, name)
                 .input("ledger", sql.VarChar, ledger)
-                .input("rate", sql.VarChar, rate)
+                .input("rate", sql.Decimal(10, 2), parseFloat(rate) || 0)
                 .input("type", sql.VarChar, type)
                 .input("scode", sql.VarChar, scode)
                 .input("exempted", sql.VarChar, exempted)
                 .input("method", sql.VarChar, method)
-                .input("fromamt", sql.VarChar, fromamt)
-                .input("toamt", sql.VarChar, toamt)
+                .input("fromamt", sql.Decimal(10, 2), parseFloat(fromamt) || 0)
+                .input("toamt", sql.Decimal(10, 2), parseFloat(toamt) || 0)
                 .input("parenttax", sql.VarChar, parenttax)
                 .input("remarks", sql.VarChar, remarks)
                 .input("createdDate", sql.DateTime, date)
                 .input("ulm", sql.DateTime, date)
                 .input("dlm", sql.DateTime, date)
+                .input("active", sql.Bit, 1)
                 .query(query);
+
             return result.rowsAffected;
 
         } catch (error) {
@@ -561,7 +773,6 @@ export const taxMasterHandler = async (req, res) => {
     try {
         // Generate the next ID
         const taxid = await generateNextCode();
-        console.log(taxid);
 
         // Call the function to create the item
         const result = await createItem(taxid, name, ledger, rate, type, scode, exempted, method, fromamt, toamt, parenttax, remarks);
@@ -614,3 +825,113 @@ export const getTax = async (req, res) => {
         });
     }
 };
+
+
+// ====================================supplier price list handler=====================================
+export const supplierPricelistHandler = async (req, res) => {
+    const { supplierID, itemcd, date, price } = req.body;
+    if (!supplierID || !itemcd || !date || !price) {
+        return res.status(200).json({
+            status: false,
+            message: "all fields are required"
+        })
+    }
+
+    const getFinancialYear = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1; // Months are 0-based in JS
+
+        if (month < 4) {
+            // If before April, financial year is (prevYear-currentYear)
+            return `${year - 1}-${year.toString().slice(-2)}`;
+        } else {
+            // If April or later, financial year is (currentYear-nextYear)
+            return `${year}-${(year + 1).toString().slice(-2)}`;
+        }
+    };
+
+    // Create a new item
+    const createItem = async (supplierID, itemcd, date, price) => {
+        try {
+            const pool = await connectToDb();
+            const today = new Date(); // Use JavaScript Date object
+            const finyr = getFinancialYear();
+
+            // Define the SQL query and parameters
+            const query = "INSERT INTO M_PRICELIST (ACCD, ITEMCD, SUBLEDTYPE, RATE, EFFECTIVEFROM, ENTRYDT, FINYR, CREATEDDATE, ULM, DLM, ACTIVE) VALUES (@supplierID, @itemcd, @subLed, @price, @date, @entry, @finyr, @createdDate, @ulm, @dlm, @active)";
+
+            // Execute the query with properly bound parameters
+            const result = await pool.request()
+                .input("supplierID", sql.VarChar, supplierID)
+                .input("itemcd", sql.VarChar, itemcd)
+                .input("subLed", sql.VarChar, 'x')
+                .input("price", sql.Decimal, price)
+                .input("date", sql.DateTime, date)
+                .input("entry", sql.DateTime, today)
+                .input("finyr", sql.VarChar, finyr)
+                .input("createdDate", sql.DateTime, today)
+                .input("ulm", sql.DateTime, today)
+                .input("dlm", sql.DateTime, today)
+                .input("active", sql.Bit, 1)
+                .query(query);
+            return result.rowsAffected;
+
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    };
+
+    try {
+        // Call the function to create the item
+        const result = await createItem(supplierID, itemcd, date, price);
+        if (result) {
+            return res.status(200).json({
+                message: "successfully inserted",
+                data: { supplierID, itemcd, date, price },
+            });
+        }
+        else {
+            return res.status(200).json({
+                status: false,
+                message: "insertion failed",
+            });
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            message: "Error processing the request",
+        });
+    } finally {
+        // Ensure the connection is closed
+        await closeConnection();
+    }
+};
+
+
+// // ====================================get supplier price list handler=====================================
+export const getSupplierPriceList = async (req, res) => {
+    // Function to fetch all UOMs from the database
+    const getSupplier = async () => {
+        const query = `
+            SELECT * FROM M_PRICELIST
+        `;
+        const result = await fetchData(query); // Fetch data using the query
+        return result;
+    };
+
+    try {
+        const supplier = await getSupplier(); // Await the result of the async function
+        res.status(200).json({
+            message: "supplier fetched successfully", // Success message
+            data: supplier, // Send the result (UOM details) in the response
+        });
+    } catch (error) {
+        console.error("Error fetching taxes:", error); // Improved error logging
+        res.status(500).json({
+            message: "Error fetching taxes", // Error message
+            error: error.message, // Optionally send the error message for debugging
+        });
+    }
+};
+
