@@ -1,4 +1,4 @@
-import { executeQuery, connectToDb, closeConnection, fetchData } from "../config/db.js";
+import { executeQuery, connectToDb, closeConnection } from "../config/db.js";
 import sql from "mssql";
 
 // ====================================get last code=====================================

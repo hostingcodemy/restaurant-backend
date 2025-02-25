@@ -1,14 +1,15 @@
 import express from 'express';
 import { upload } from '../middlewares/multer.middleware.js';
-import { itemMasterHandler, getItems, itemGroupHandler, allItemGroup, itemSubGroupHandler, allItemSubGroup, itemUOMHandler, getItemUOM, locationMasterHandler, getlocation, taxMasterHandler, getTax, supplierPricelistHandler, getSupplierPriceList, itemCategoryHandler, allItemCategory, itemSubCategoryHandler, allItemSubCategory } from '../controllers/item.controller.js';
+import { itemMasterHandler, itemMasterDelete, getItems, itemGroupHandler, itemGroupDelete, allItemGroup, itemSubGroupHandler, itemSubGroupDelete, allItemSubGroup, itemUOMHandler, getItemUOM, locationMasterHandler, getlocation, taxMasterHandler, getTax, supplierPricelistHandler, getSupplierPriceList, itemCategoryHandler, allItemCategory, itemSubCategoryHandler, allItemSubCategory } from '../controllers/item.controller.js';
 
 const itemRouter = express.Router();
 
-itemRouter.post('/item-master', itemMasterHandler);
+itemRouter.route('/item-master').post(itemMasterHandler).put(itemMasterDelete);
 itemRouter.get('/all-item', getItems);
-itemRouter.post('/item-group', itemGroupHandler);
+itemRouter.route('/item-group').post(itemGroupHandler).put(itemGroupDelete);
 itemRouter.get('/all-item-group', allItemGroup);
 itemRouter.post('/item-subgroup', itemSubGroupHandler);
+itemRouter.route('/item-subgroup').post(itemSubGroupHandler).put(itemSubGroupDelete);
 itemRouter.get('/all-item-subgroup', allItemSubGroup);
 
 itemRouter.post('/item-category', itemCategoryHandler);

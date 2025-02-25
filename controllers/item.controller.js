@@ -1,8 +1,8 @@
-import { executeQuery, connectToDb, closeConnection, fetchData } from "../config/db.js";
+import { executeQuery, connectToDb, closeConnection } from "../config/db.js";
 import sql from "mssql";
 
 
-// ====================================location master handler=====================================
+// ====================================item master handler=====================================
 export const itemMasterHandler = async (req, res) => {
     const { compCode, alias, desc, desc1, uom, recUom, recUomConv, recRate, salUom, salUomConv, salerate, itemTypeName, ItemtypeCode, mrp, itemGroup, barCode, cusdayItem, cusPurStock, subItemCD, itemSubTypeCode, itemGroupID, itemSubGroupID, itemSubTypeID, itemTypeID, createdby, createddate, HSNcode, conversionUnit, conversionQTY, conUnit, conQty } = req.body;
 
@@ -23,7 +23,7 @@ export const itemMasterHandler = async (req, res) => {
             SELECT TOP 1 ITEMCD FROM M_ITEM ORDER BY ITEMCD DESC
         `;
 
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
 
         if (result.length > 0) {
             return result[0].ITEMCD;
@@ -148,14 +148,81 @@ export const itemMasterHandler = async (req, res) => {
 };
 
 
-// ====================================get location handler=====================================
+// ====================================item master update=====================================
+export const itemMasterUpdate = async (req, res) => {
+    const { itemCD } = req.body;
+
+    if (!itemCD) {
+        return res.status(200).json({
+            status: false,
+            message: "itemCD is required"
+        })
+    }
+}
+
+
+// ====================================item master delete=====================================
+export const itemMasterDelete = async (req, res) => {
+    const { itemCD } = req.body;
+
+    if (!itemCD) {
+        return res.status(400).json({
+            status: false,
+            message: "itemCD is required"
+        });
+    }
+
+    const getActive = async () => {
+        try {
+            const query = `SELECT ACTIVE FROM M_ITEM WHERE ITEMCD = @param0`;
+            const result = await executeQuery(query, [itemCD]);
+            return result.length ? result[0].ACTIVE : null;
+        } catch (error) {
+            console.error("Error fetching ACTIVE flag:", error);
+            throw error;
+        }
+    };
+
+    try {
+        const isActive = await getActive();
+
+        if (isActive === null) {
+            return res.status(404).json({
+                status: false,
+                message: "Item not found",
+            });
+        }
+
+        // Toggle ACTIVE flag (1 -> 0, 0 -> 1)
+        const newActiveStatus = isActive ? 0 : 1;
+        const updateQuery = `UPDATE M_ITEM SET ACTIVE = @param0 WHERE ITEMCD = @param1`;
+        await executeQuery(updateQuery, [newActiveStatus, itemCD]);
+
+        return res.status(200).json({
+            status: true,
+            message: `Item ACTIVE flag updated to ${newActiveStatus}`
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            status: false,
+            message: "Error processing the request",
+        });
+    } finally {
+        await closeConnection();
+    }
+};
+
+
+// ====================================get items handler=====================================
 export const getItems = async (req, res) => {
     // Function to fetch all UOMs from the database
     const getLoc = async () => {
         const query = `
             SELECT * FROM M_LOCATION
         `;
-        const result = await fetchData(query); // Fetch data using the query
+        const result = await executeQuery(query); // Fetch data using the query
         return result;
     };
 
@@ -194,7 +261,7 @@ export const itemGroupHandler = async (req, res) => {
             ORDER BY M_ITEMGROUPID DESC
         `;
 
-        const result = await fetchData(query); // helper function call
+        const result = await executeQuery(query); // helper function call
         if (result.length > 0) {
             return result[0].M_ITEMGROUPID;
         }
@@ -277,13 +344,80 @@ export const itemGroupHandler = async (req, res) => {
 };
 
 
+// ====================================item group update=====================================
+export const itemGroupUpdate = async (req, res) => {
+    const { itemCD } = req.body;
+
+    if (!itemCD) {
+        return res.status(200).json({
+            status: false,
+            message: "itemCD is required"
+        })
+    }
+}
+
+
+// ====================================item group delete=====================================
+export const itemGroupDelete = async (req, res) => {
+    const { itemGroupID } = req.body;
+
+    if (!itemGroupID) {
+        return res.status(400).json({
+            status: false,
+            message: "itemGroupID is required"
+        });
+    }
+
+    const getActive = async () => {
+        try {
+            const query = `SELECT ACTIVE FROM M_ITEMGROUP WHERE M_ITEMGROUPID = @param0`;
+            const result = await executeQuery(query, [itemGroupID]);
+            return result.length ? result[0].ACTIVE : null;
+        } catch (error) {
+            console.error("Error fetching ACTIVE flag:", error);
+            throw error;
+        }
+    };
+
+    try {
+        const isActive = await getActive();
+
+        if (isActive === null) {
+            return res.status(404).json({
+                status: false,
+                message: "Item not found",
+            });
+        }
+
+        // Toggle ACTIVE flag (1 -> 0, 0 -> 1)
+        const newActiveStatus = isActive ? 0 : 1;
+        const updateQuery = `UPDATE M_ITEMGROUP SET ACTIVE = @param0 WHERE M_ITEMGROUPID = @param1`;
+        await executeQuery(updateQuery, [newActiveStatus, itemGroupID]);
+
+        return res.status(200).json({
+            status: true,
+            message: `Item ACTIVE flag updated to ${newActiveStatus}`
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            status: false,
+            message: "Error processing the request",
+        });
+    } finally {
+        await closeConnection();
+    }
+};
+
+
 // ====================================get all group handler=====================================
 export const allItemGroup = async (req, res) => {
     const getItemGroupNames = async () => {
         const query = `
            SELECT * FROM M_ITEMGROUP;
         `;
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
         return result;
     };
 
@@ -317,7 +451,7 @@ export const itemSubGroupHandler = async (req, res) => {
             ORDER BY M_ITEMSUBGROUP_ID DESC
         `;
 
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
 
         if (result.length > 0) {
             return result[0].M_ITEMSUBGROUP_ID;
@@ -403,13 +537,80 @@ export const itemSubGroupHandler = async (req, res) => {
 };
 
 
+// ====================================item group update=====================================
+export const itemSubGroupUpdate = async (req, res) => {
+    const { itemCD } = req.body;
+
+    if (!itemCD) {
+        return res.status(200).json({
+            status: false,
+            message: "itemCD is required"
+        })
+    }
+}
+
+
+// ====================================item group delete=====================================
+export const itemSubGroupDelete = async (req, res) => {
+    const { itemSubGroupID } = req.body;
+
+    if (!itemSubGroupID) {
+        return res.status(400).json({
+            status: false,
+            message: "itemSubGroupID is required"
+        });
+    }
+
+    const getActive = async () => {
+        try {
+            const query = `SELECT ACTIVE FROM M_ITEMSUBGROUP WHERE M_ITEMSUBGROUP_ID = @param0`;
+            const result = await executeQuery(query, [itemSubGroupID]);
+            return result.length ? result[0].ACTIVE : null;
+        } catch (error) {
+            console.error("Error fetching ACTIVE flag:", error);
+            throw error;
+        }
+    };
+
+    try {
+        const isActive = await getActive();
+
+        if (isActive === null) {
+            return res.status(404).json({
+                status: false,
+                message: "Item not found",
+            });
+        }
+
+        // Toggle ACTIVE flag (1 -> 0, 0 -> 1)
+        const newActiveStatus = isActive ? 0 : 1;
+        const updateQuery = `UPDATE M_ITEMSUBGROUP SET ACTIVE = @param0 WHERE M_ITEMSUBGROUP_ID = @param1`;
+        await executeQuery(updateQuery, [newActiveStatus, itemSubGroupID]);
+
+        return res.status(200).json({
+            status: true,
+            message: `Item ACTIVE flag updated to ${newActiveStatus}`
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            status: false,
+            message: "Error processing the request",
+        });
+    } finally {
+        await closeConnection();
+    }
+};
+
+
 // ====================================get all sub-group handler=====================================
 export const allItemSubGroup = async (req, res) => {
     const getItemSubGroupNames = async () => {
         const query = `
            SELECT * FROM M_ITEMSUBGROUP;
         `;
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
         return result;
     };
 
@@ -444,7 +645,7 @@ export const itemCategoryHandler = async (req, res) => {
             ORDER BY M_ITEMTYPE_ID DESC
         `;
 
-        const result = await fetchData(query); // helper function call
+        const result = await executeQuery(query); // helper function call
         if (result.length > 0) {
             return result[0].M_ITEMTYPE_ID;
         }
@@ -474,7 +675,7 @@ export const itemCategoryHandler = async (req, res) => {
             SELECT TOP 1 ITEMTYPECODE FROM M_ITEMTYPE ORDER BY ITEMTYPECODE DESC
         `;
 
-        const result = await fetchData(query); // helper function call
+        const result = await executeQuery(query); // helper function call
         if (result.length > 0 && result[0].ITEMTYPECODE) {
             return result[0].ITEMTYPECODE.trim(); // Ensure it's a clean string
         }
@@ -583,7 +784,7 @@ export const allItemCategory = async (req, res) => {
         const query = `
            SELECT * FROM M_ITEMTYPE;
         `;
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
         return result;
     };
 
@@ -618,7 +819,7 @@ export const itemSubCategoryHandler = async (req, res) => {
             ORDER BY M_ITEMSUBTYPE_ID DESC
         `;
 
-        const result = await fetchData(query); // helper function call
+        const result = await executeQuery(query); // helper function call
         if (result.length > 0) {
             return result[0].M_ITEMSUBTYPE_ID;
         }
@@ -648,7 +849,7 @@ export const itemSubCategoryHandler = async (req, res) => {
             SELECT TOP 1 ITEMSUBTYPECODE FROM M_ITEMSUBTYPE ORDER BY ITEMSUBTYPECODE DESC
         `;
 
-        const result = await fetchData(query); // helper function call
+        const result = await executeQuery(query); // helper function call
         if (result.length > 0 && result[0].ITEMSUBTYPECODE) {
             return result[0].ITEMSUBTYPECODE.trim(); // Ensure it's a clean string
         }
@@ -759,7 +960,7 @@ export const allItemSubCategory = async (req, res) => {
         const query = `
            SELECT * FROM M_ITEMSUBTYPE;
         `;
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
         return result;
     };
 
@@ -791,7 +992,7 @@ export const itemUOMHandler = async (req, res) => {
             SELECT TOP 1 CODE FROM M_UOM WHERE CODE LIKE '00%' ORDER BY CODE DESC;
         `;
 
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
 
         if (result && result.length > 0 && result[0].CODE) {
             return result[0].CODE.trim(); // Trim in case of extra spaces
@@ -895,7 +1096,7 @@ export const getItemUOM = async (req, res) => {
         const query = `
             SELECT * FROM M_UOM
         `;
-        const result = await fetchData(query); // Fetch data using the query
+        const result = await executeQuery(query); // Fetch data using the query
         return result;
     };
 
@@ -931,7 +1132,7 @@ export const locationMasterHandler = async (req, res) => {
             SELECT TOP 1 CODE FROM M_LOCATION ORDER BY CODE DESC
         `;
 
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
 
         if (result.length > 0) {
             return result[0].CODE; // Assuming CODE is stored as "001", "002", etc.
@@ -1024,7 +1225,7 @@ export const getlocation = async (req, res) => {
         const query = `
             SELECT * FROM M_LOCATION
         `;
-        const result = await fetchData(query); // Fetch data using the query
+        const result = await executeQuery(query); // Fetch data using the query
         return result;
     };
 
@@ -1060,7 +1261,7 @@ export const taxMasterHandler = async (req, res) => {
             SELECT TOP 1 TAX_ID FROM M_TAX ORDER BY TAX_ID DESC
         `;
 
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
 
         if (result.length > 0) {
             return result[0].TAX_ID; // Assuming CODE is stored as "001", "002", etc.
@@ -1157,7 +1358,7 @@ export const getTax = async (req, res) => {
         const query = `
             SELECT * FROM M_TAX
         `;
-        const result = await fetchData(query); // Fetch data using the query
+        const result = await executeQuery(query); // Fetch data using the query
         return result;
     };
 
@@ -1266,7 +1467,7 @@ export const getSupplierPriceList = async (req, res) => {
         const query = `
             SELECT * FROM M_PRICELIST
         `;
-        const result = await fetchData(query); // Fetch data using the query
+        const result = await executeQuery(query); // Fetch data using the query
         return result;
     };
 

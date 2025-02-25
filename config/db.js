@@ -33,41 +33,25 @@ const connectToDb = async () => {
         throw error;
     }
 };
-connectToDb();
 
 // Helper function to execute a raw SQL query
 const executeQuery = async (query, params = []) => {
+    let pool;
     try {
-        const request = new sql.Request();
+        pool = await connectToDb(); // Ensure connection reuse
+        const request = pool.request();
 
-        // Bind parameters if provided
         params.forEach((param, index) => {
-            request.input(`param${index}`, param); // Generate a name for the param dynamically
+            request.input(`param${index}`, param);
         });
 
         const result = await request.query(query);
         return result.recordset;
     } catch (error) {
-        console.error("Error executing query:", error);
-        throw error;
-    }
-};
-
-export const fetchData = async (query, params = []) => {
-    try {
-        const pool = await connectToDb(); // Ensure this reuses a connection pool
-        const request = pool.request();
-
-        // If parameters are provided, bind them properly
-        params.forEach((param, index) => {
-            request.input(`param${index + 1}`, param);
-        });
-
-        const result = await request.query(query);
-        return result.recordset; // Return fetched data
-    } catch (error) {
         console.error("Database query error:", error);
-        throw error; // Rethrow for higher-level handling
+        throw error;
+    } finally {
+        if (pool) await pool.close(); // Close connection to prevent leaks
     }
 };
 
