@@ -425,6 +425,356 @@ export const allItemSubGroup = async (req, res) => {
 };
 
 
+// ====================================item category handler=====================================
+export const itemCategoryHandler = async (req, res) => {
+    const { name, shcode, grpId, subGrpId, qtyOb, valueOb, belongs } = req.body;
+
+    if (!name || !shcode || !grpId || !subGrpId || !qtyOb || !valueOb || !belongs) {
+        return res.status(200).json({
+            status: false,
+            message: "all fields are required"
+        })
+    }
+
+    // Function to get the last generated ID
+    const getLastGeneratedId = async () => {
+        const query = `
+            SELECT TOP 1 M_ITEMTYPE_ID FROM M_ITEMTYPE
+            WHERE M_ITEMTYPE_ID LIKE 'MIT%' 
+            ORDER BY M_ITEMTYPE_ID DESC
+        `;
+
+        const result = await fetchData(query); // helper function call
+        if (result.length > 0) {
+            return result[0].M_ITEMTYPE_ID;
+        }
+
+        return null; // No previous ID found
+    };
+
+    // Function to generate the next ID
+    const generateNextId = async () => {
+        const lastId = await getLastGeneratedId();
+
+        if (!lastId) {
+            return "MIT000000000000001"; // First ID if no records exist
+        }
+
+        // Extract numeric part and increment
+        const lastNumber = parseInt(lastId.replace("MIT", ""), 10);
+        const nextNumber = lastNumber + 1;
+
+        // Format with leading zeros
+        return `MIT${nextNumber.toString().padStart(15, "0")}`;
+    };
+
+    // Function to get the last generated ID
+    const getLastGeneratedCode = async () => {
+        const query = `
+            SELECT TOP 1 ITEMTYPECODE FROM M_ITEMTYPE ORDER BY ITEMTYPECODE DESC
+        `;
+
+        const result = await fetchData(query); // helper function call
+        if (result.length > 0 && result[0].ITEMTYPECODE) {
+            return result[0].ITEMTYPECODE.trim(); // Ensure it's a clean string
+        }
+
+        return null; // No previous ID found
+    };
+
+    // Function to generate the next ID
+    const generateNextCode = async () => {
+        const lastId = await getLastGeneratedCode();
+
+        if (!lastId || isNaN(lastId)) {
+            return "1"; // First ID if no records exist or invalid data
+        }
+
+        // Convert to number and increment
+        return (parseInt(lastId, 10) + 1).toString();
+    };
+
+    const getFinancialYear = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1; // Months are 0-based in JS
+
+        if (month < 4) {
+            // If before April, financial year is (prevYear-currentYear)
+            return `${year - 1}-${year.toString().slice(-2)}`;
+        } else {
+            // If April or later, financial year is (currentYear-nextYear)
+            return `${year}-${(year + 1).toString().slice(-2)}`;
+        }
+    };
+
+    // Create a new item
+    const createItem = async (nextId, nextCode, name, shcode, grpId, subGrpId, qtyOb, valueOb, belongs) => {
+        try {
+            const pool = await connectToDb();
+            const date = new Date(); // Use JavaScript Date object
+            const finyr = getFinancialYear();
+
+            // Define the SQL query
+            const query = `
+                INSERT INTO M_ITEMTYPE (M_ITEMTYPE_ID, ITEMTYPECODE, FINYR, ITEMTYPENAME, BELONGSTO, QTYOB, VALOB, LMDT, ITEMTYPESHORTCODE, M_ITEMSUBGROUP_ID, M_ITEMGROUPID, CREATEDDATE, ULM, DLM, ACTIVE) 
+                VALUES (@nextId, @nextCode, @finyr, @name, @belongs, @qtyOb, @valueOb, @lmdt, @shcode, @grpId, @subGrpId,   @createdDate, @ulm, @dlm, @active)
+            `;
+
+            // Execute the query with properly bound parameters
+            const result = await pool.request()
+                .input("nextId", sql.VarChar, nextId)
+                .input("nextCode", sql.VarChar, nextCode)
+                .input("finyr", sql.VarChar, finyr)
+                .input("name", sql.VarChar, name)
+                .input("belongs", sql.Decimal, belongs)
+                .input("qtyOb", sql.Decimal, qtyOb)
+                .input("valueOb", sql.Decimal, valueOb)
+                .input("lmdt", sql.DateTime, date)
+                .input("shcode", sql.VarChar, shcode)
+                .input("grpId", sql.VarChar, grpId)
+                .input("subGrpId", sql.VarChar, subGrpId)
+                .input("createdDate", sql.DateTime, date)
+                .input("ulm", sql.DateTime, date)
+                .input("dlm", sql.DateTime, date)
+                .input("active", sql.Bit, 1)
+                .query(query);
+
+            return result.rowsAffected;
+        } catch (error) {
+            console.error("Error inserting data:", error);
+        }
+    };
+
+    try {
+        // Generate the next ID
+        const nextId = await generateNextId();
+        const nextCode = await generateNextCode();
+        // Call the function to create the item
+        const result = await createItem(nextId, nextCode, name, shcode, grpId, subGrpId, qtyOb, valueOb, belongs);
+        if (result) {
+            return res.status(200).json({
+                message: "Item category successfully inserted",
+                data: { nextId, nextCode, name, shcode, grpId, subGrpId, qtyOb, valueOb, belongs },
+            });
+        }
+        else {
+            return res.status(200).json({
+                status: false,
+                message: "Item category insertion failed",
+            });
+        }
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            message: "Error processing the request",
+        });
+    } finally {
+        // Ensure the connection is closed
+        await closeConnection();
+    }
+};
+
+
+// ====================================get all category handler=====================================
+export const allItemCategory = async (req, res) => {
+    const getItemCategory = async () => {
+        const query = `
+           SELECT * FROM M_ITEMTYPE;
+        `;
+        const result = await fetchData(query);
+        return result;
+    };
+
+    try {
+        const itemCategory = await getItemCategory(); // Await the result of the async function
+        res.status(200).json({
+            itemCategory, // Send the result in the response
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching item category" });
+    }
+};
+
+
+// ====================================item sub category handler=====================================
+export const itemSubCategoryHandler = async (req, res) => {
+    const { name, shcode, ctgId, subGrpId, qtyOb, valueOb, serial } = req.body;
+
+    if (!name || !shcode || !ctgId || !subGrpId || !qtyOb || !valueOb || !serial) {
+        return res.status(200).json({
+            status: false,
+            message: "all fields are required"
+        })
+    }
+
+    // Function to get the last generated ID
+    const getLastGeneratedId = async () => {
+        const query = `
+            SELECT TOP 1 M_ITEMSUBTYPE_ID FROM M_ITEMSUBTYPE
+            WHERE M_ITEMSUBTYPE_ID LIKE 'MIST%' 
+            ORDER BY M_ITEMSUBTYPE_ID DESC
+        `;
+
+        const result = await fetchData(query); // helper function call
+        if (result.length > 0) {
+            return result[0].M_ITEMSUBTYPE_ID;
+        }
+
+        return null; // No previous ID found
+    };
+
+    // Function to generate the next ID
+    const generateNextId = async () => {
+        const lastId = await getLastGeneratedId();
+
+        if (!lastId) {
+            return "MIT000000000000001"; // First ID if no records exist
+        }
+
+        // Extract numeric part and increment
+        const lastNumber = parseInt(lastId.replace("MIST", ""), 10);
+        const nextNumber = lastNumber + 1;
+
+        // Format with leading zeros
+        return `MIST${nextNumber.toString().padStart(15, "0")}`;
+    };
+
+    // Function to get the last generated ID
+    const getLastGeneratedCode = async () => {
+        const query = `
+            SELECT TOP 1 ITEMSUBTYPECODE FROM M_ITEMSUBTYPE ORDER BY ITEMSUBTYPECODE DESC
+        `;
+
+        const result = await fetchData(query); // helper function call
+        if (result.length > 0 && result[0].ITEMSUBTYPECODE) {
+            return result[0].ITEMSUBTYPECODE.trim(); // Ensure it's a clean string
+        }
+
+        return null; // No previous ID found
+    };
+
+    // Function to generate the next ID
+    const generateNextCode = async () => {
+        const lastId = await getLastGeneratedCode();
+
+        if (!lastId || isNaN(lastId)) {
+            return "0001"; // First ID if no records exist or invalid data
+        }
+        // Extract numeric part and increment
+        const lastNumber = parseInt(lastId, 10);
+        const nextNumber = lastNumber + 1;
+
+        return nextNumber.toString().padStart(4, "0");
+    };
+
+    const getFinancialYear = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1; // Months are 0-based in JS
+
+        if (month < 4) {
+            // If before April, financial year is (prevYear-currentYear)
+            return `${year - 1}-${year.toString().slice(-2)}`;
+        } else {
+            // If April or later, financial year is (currentYear-nextYear)
+            return `${year}-${(year + 1).toString().slice(-2)}`;
+        }
+    };
+
+    // Create a new item
+    const createItem = async (nextId, nextCode, name, shcode, ctgId, subGrpId, qtyOb, valueOb, serial) => {
+        try {
+            const pool = await connectToDb();
+            const date = new Date(); // Use JavaScript Date object
+            const finyr = getFinancialYear();
+
+            // Define the SQL query
+            const query = `
+                INSERT INTO M_ITEMSUBTYPE (M_ITEMSUBTYPE_ID, ITEMSUBTYPECODE, FINYR, ITEMSUBTYPENAME, ITEMSUBTYPESHORTCODE, QTYOB, VALOB, ITEMTYPECODE, PRINTSRLNO, LMDT, M_ITEMSUBGROUP_ID, CREATEDDATE, ULM, DLM, ACTIVE) 
+                VALUES (@nextId, @nextCode, @finyr, @name, @shcode, @qtyOb, @valueOb, @ctgId, @serial, @lmdt, @subGrpId, @createdDate, @ulm, @dlm, @active)
+            `;
+
+            // Execute the query with properly bound parameters
+            const result = await pool.request()
+                .input("nextId", sql.VarChar, nextId)
+                .input("nextCode", sql.VarChar, nextCode)
+                .input("finyr", sql.VarChar, finyr)
+                .input("name", sql.VarChar, name)
+                .input("qtyOb", sql.Decimal, qtyOb)
+                .input("valueOb", sql.Decimal, valueOb)
+                .input("ctgId", sql.VarChar, ctgId)
+                .input("serial", sql.Decimal, serial)
+                .input("lmdt", sql.DateTime, date)
+                .input("shcode", sql.VarChar, shcode)
+                .input("subGrpId", sql.VarChar, subGrpId)
+                .input("createdDate", sql.DateTime, date)
+                .input("ulm", sql.DateTime, date)
+                .input("dlm", sql.DateTime, date)
+                .input("active", sql.Bit, 1)
+                .query(query);
+
+            return result.rowsAffected;
+        } catch (error) {
+            console.error("Error inserting data:", error);
+        }
+    };
+
+    try {
+        // Generate the next ID
+        const nextId = await generateNextId();
+        const nextCode = await generateNextCode();
+        // Call the function to create the item
+        const result = await createItem(nextId, nextCode, name, shcode, ctgId, subGrpId, qtyOb, valueOb, serial);
+        if (result) {
+            return res.status(200).json({
+                message: "Item sub-category successfully inserted",
+                data: { nextId, nextCode, name, shcode, ctgId, subGrpId, qtyOb, valueOb, serial },
+            });
+        }
+        else {
+            return res.status(200).json({
+                status: false,
+                message: "Item sub-category insertion failed",
+            });
+        }
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            message: "Error processing the request",
+        });
+    } finally {
+        // Ensure the connection is closed
+        await closeConnection();
+    }
+};
+
+
+// ====================================get all sub category handler=====================================
+export const allItemSubCategory = async (req, res) => {
+    const getItemSubCategory = async () => {
+        const query = `
+           SELECT * FROM M_ITEMSUBTYPE;
+        `;
+        const result = await fetchData(query);
+        return result;
+    };
+
+    try {
+        const itemSubCategory = await getItemSubCategory(); // Await the result of the async function
+        res.status(200).json({
+            message: itemSubCategory, // Send the result in the response
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching item sub-groups" });
+    }
+};
+
+
 // ====================================UOM handler=====================================
 export const itemUOMHandler = async (req, res) => {
     const { name, code } = req.body;
