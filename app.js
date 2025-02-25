@@ -3,6 +3,7 @@ import cors from 'cors';
 import { config } from 'dotenv';
 import itemRouter from './routes/item.router.js';
 import indentRouter from './routes/indent.route.js';
+import purchaseRouter from './routes/purchase.route.js';
 
 config();
 const app = express();
@@ -21,5 +22,6 @@ app.get('/', (_, res) => {
 
 app.use('/api', itemRouter);
 app.use('/api', indentRouter);
+app.use('/api', purchaseRouter);
 
 export default app;
