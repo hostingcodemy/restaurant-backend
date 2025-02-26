@@ -1,7 +1,5 @@
 import { executeQuery, connectToDb, closeConnection } from "../config/db.js";
 import sql from "mssql";
-
-
 // ====================================item master handler=====================================
 export const itemMasterHandler = async (req, res) => {
     const { compCode, alias, desc, desc1, uom, recUom, recUomConv, recRate, salUom, salUomConv, salerate, itemTypeName, ItemtypeCode, mrp, itemGroup, barCode, cusdayItem, cusPurStock, subItemCD, itemSubTypeCode, itemGroupID, itemSubGroupID, itemSubTypeID, itemTypeID, createdby, createddate, HSNcode, conversionUnit, conversionQTY, conUnit, conQty } = req.body;
@@ -44,7 +42,7 @@ export const itemMasterHandler = async (req, res) => {
         const lastNumber = parseInt(lastCode, 10);
         const nextNumber = lastNumber + 1;
 
-        return nextNumber.toString().padStart(7, "0"); // Ensures "001", "002", etc.
+        return nextNumber.toString().padStart(7, "0");
     };
 
     const getFinancialYear = () => {
@@ -217,20 +215,19 @@ export const itemMasterDelete = async (req, res) => {
 
 // ====================================get items handler=====================================
 export const getItems = async (req, res) => {
-    // Function to fetch all UOMs from the database
-    const getLoc = async () => {
+    const getItem = async () => {
         const query = `
-            SELECT * FROM M_LOCATION
+            SELECT * FROM M_ITEM
         `;
         const result = await executeQuery(query); // Fetch data using the query
         return result;
     };
 
     try {
-        const locations = await getLoc(); // Await the result of the async function
+        const item = await getItem(); // Await the result of the async function
         res.status(200).json({
-            message: "Locations fetched successfully", // Success message
-            data: locations, // Send the result (UOM details) in the response
+            message: "items fetched successfully", // Success message
+            data: item, // Send the result in the response
         });
     } catch (error) {
         console.error("Error fetching locations:", error); // Improved error logging
@@ -346,12 +343,12 @@ export const itemGroupHandler = async (req, res) => {
 
 // ====================================item group update=====================================
 export const itemGroupUpdate = async (req, res) => {
-    const { itemCD } = req.body;
+    const { itemGroupID } = req.body;
 
-    if (!itemCD) {
+    if (!itemGroupID) {
         return res.status(200).json({
             status: false,
-            message: "itemCD is required"
+            message: "itemGroupID is required"
         })
     }
 }
@@ -385,7 +382,7 @@ export const itemGroupDelete = async (req, res) => {
         if (isActive === null) {
             return res.status(404).json({
                 status: false,
-                message: "Item not found",
+                message: "Item group not found",
             });
         }
 
@@ -509,7 +506,6 @@ export const itemSubGroupHandler = async (req, res) => {
     try {
         // Generate the next ID
         const nextId = await generateNextId();
-        console.log(nextId);
 
         // Call the function to create the item
         const result = await createItem(name, code, nextId, groupid, accode);
@@ -522,7 +518,7 @@ export const itemSubGroupHandler = async (req, res) => {
         else {
             return res.status(200).json({
                 status: false,
-                message: "Item group insertion failed",
+                message: "Item sub-group insertion failed",
             });
         }
     } catch (error) {
@@ -539,12 +535,12 @@ export const itemSubGroupHandler = async (req, res) => {
 
 // ====================================item group update=====================================
 export const itemSubGroupUpdate = async (req, res) => {
-    const { itemCD } = req.body;
+    const { itemSubGroupID } = req.body;
 
-    if (!itemCD) {
+    if (!itemSubGroupID) {
         return res.status(200).json({
             status: false,
-            message: "itemCD is required"
+            message: "itemSubGroupID is required"
         })
     }
 }
@@ -778,6 +774,73 @@ export const itemCategoryHandler = async (req, res) => {
 };
 
 
+// ====================================item category update=====================================
+export const itemCategoryUpdate = async (req, res) => {
+    const { itemCategoryID } = req.body;
+
+    if (!itemCategoryID) {
+        return res.status(200).json({
+            status: false,
+            message: "itemCategoryID is required"
+        })
+    }
+}
+
+
+// ====================================item category delete=====================================
+export const itemCategoryDelete = async (req, res) => {
+    const { itemCategoryID } = req.body;
+
+    if (!itemCategoryID) {
+        return res.status(400).json({
+            status: false,
+            message: "itemCategoryID is required"
+        });
+    }
+
+    const getActive = async () => {
+        try {
+            const query = `SELECT ACTIVE FROM M_ITEMTYPE WHERE M_ITEMTYPE_ID = @param0`;
+            const result = await executeQuery(query, [itemCategoryID]);
+            return result.length ? result[0].ACTIVE : null;
+        } catch (error) {
+            console.error("Error fetching ACTIVE flag:", error);
+            throw error;
+        }
+    };
+
+    try {
+        const isActive = await getActive();
+
+        if (isActive === null) {
+            return res.status(404).json({
+                status: false,
+                message: "Item category not found",
+            });
+        }
+
+        // Toggle ACTIVE flag (1 -> 0, 0 -> 1)
+        const newActiveStatus = isActive ? 0 : 1;
+        const updateQuery = `UPDATE M_ITEMTYPE SET ACTIVE = @param0 WHERE M_ITEMTYPE_ID = @param1`;
+        await executeQuery(updateQuery, [newActiveStatus, itemCategoryID]);
+
+        return res.status(200).json({
+            status: true,
+            message: `Item ACTIVE flag updated to ${newActiveStatus}`
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            status: false,
+            message: "Error processing the request",
+        });
+    } finally {
+        await closeConnection();
+    }
+};
+
+
 // ====================================get all category handler=====================================
 export const allItemCategory = async (req, res) => {
     const getItemCategory = async () => {
@@ -832,7 +895,7 @@ export const itemSubCategoryHandler = async (req, res) => {
         const lastId = await getLastGeneratedId();
 
         if (!lastId) {
-            return "MIT000000000000001"; // First ID if no records exist
+            return "MIST000000000000001"; // First ID if no records exist
         }
 
         // Extract numeric part and increment
@@ -954,6 +1017,73 @@ export const itemSubCategoryHandler = async (req, res) => {
 };
 
 
+// ====================================item subcategory update=====================================
+export const itemSubCategoryUpdate = async (req, res) => {
+    const { itemSubCategoryID } = req.body;
+
+    if (!itemSubCategoryID) {
+        return res.status(200).json({
+            status: false,
+            message: "itemSubCategoryID is required"
+        })
+    }
+}
+
+
+// ====================================item subcategory delete=====================================
+export const itemSubCategoryDelete = async (req, res) => {
+    const { itemSubCategoryID } = req.body;
+
+    if (!itemSubCategoryID) {
+        return res.status(400).json({
+            status: false,
+            message: "itemSubCategoryID is required"
+        });
+    }
+
+    const getActive = async () => {
+        try {
+            const query = `SELECT ACTIVE FROM M_ITEMSUBTYPE WHERE M_ITEMSUBTYPE_ID = @param0`;
+            const result = await executeQuery(query, [itemSubCategoryID]);
+            return result.length ? result[0].ACTIVE : null;
+        } catch (error) {
+            console.error("Error fetching ACTIVE flag:", error);
+            throw error;
+        }
+    };
+
+    try {
+        const isActive = await getActive();
+
+        if (isActive === null) {
+            return res.status(404).json({
+                status: false,
+                message: "Item not found",
+            });
+        }
+
+        // Toggle ACTIVE flag (1 -> 0, 0 -> 1)
+        const newActiveStatus = isActive ? 0 : 1;
+        const updateQuery = `UPDATE M_ITEMSUBTYPE SET ACTIVE = @param0 WHERE M_ITEMSUBTYPE_ID = @param1`;
+        await executeQuery(updateQuery, [newActiveStatus, itemSubCategoryID]);
+
+        return res.status(200).json({
+            status: true,
+            message: `Item ACTIVE flag updated to ${newActiveStatus}`
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            status: false,
+            message: "Error processing the request",
+        });
+    } finally {
+        await closeConnection();
+    }
+};
+
+
 // ====================================get all sub category handler=====================================
 export const allItemSubCategory = async (req, res) => {
     const getItemSubCategory = async () => {
@@ -1030,7 +1160,6 @@ export const itemUOMHandler = async (req, res) => {
         }
     };
 
-
     // Create a new item
     const createItem = async (name, code, nextCode) => {
         try {
@@ -1059,15 +1188,15 @@ export const itemUOMHandler = async (req, res) => {
     };
 
     try {
-        const newCode = await nextUomCode();
+        const nextCode = await nextUomCode();
 
         // Call the function to create the item
-        const result = await createItem(name, code, newCode);
+        const result = await createItem(name, code, nextCode);
 
         if (result) {
             // Respond with the success message
             res.status(200).json({
-                message: "Item UOM successfully created",
+                message: "Item UOM successfully inserted",
                 data: { name, code },
             });
         }
@@ -1089,6 +1218,73 @@ export const itemUOMHandler = async (req, res) => {
 };
 
 
+// ====================================item uom update=====================================
+export const itemUOMUpdate = async (req, res) => {
+    const { uomCode } = req.body;
+
+    if (!uomCode) {
+        return res.status(200).json({
+            status: false,
+            message: "uomCode is required"
+        })
+    }
+}
+
+
+// ====================================item uom delete=====================================
+export const itemUOMDelete = async (req, res) => {
+    const { uomCode } = req.body;
+
+    if (!uomCode) {
+        return res.status(400).json({
+            status: false,
+            message: "uomCode is required"
+        });
+    }
+
+    const getActive = async () => {
+        try {
+            const query = `SELECT ACTIVE FROM M_UOM WHERE CODE = @param0`;
+            const result = await executeQuery(query, [uomCode]);
+            return result.length ? result[0].ACTIVE : null;
+        } catch (error) {
+            console.error("Error fetching ACTIVE flag:", error);
+            throw error;
+        }
+    };
+
+    try {
+        const isActive = await getActive();
+
+        if (isActive === null) {
+            return res.status(404).json({
+                status: false,
+                message: "Item not found",
+            });
+        }
+
+        // Toggle ACTIVE flag (1 -> 0, 0 -> 1)
+        const newActiveStatus = isActive ? 0 : 1;
+        const updateQuery = `UPDATE M_UOM SET ACTIVE = @param0 WHERE CODE = @param1`;
+        await executeQuery(updateQuery, [newActiveStatus, uomCode]);
+
+        return res.status(200).json({
+            status: true,
+            message: `Item ACTIVE flag updated to ${newActiveStatus}`
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            status: false,
+            message: "Error processing the request",
+        });
+    } finally {
+        await closeConnection();
+    }
+};
+
+
 // ====================================get UOM handler=====================================
 export const getItemUOM = async (req, res) => {
     // Function to fetch all UOMs from the database
@@ -1104,274 +1300,12 @@ export const getItemUOM = async (req, res) => {
         const uoms = await getUOM(); // Await the result of the async function
         res.status(200).json({
             message: "UOMs fetched successfully", // Success message
-            data: uoms, // Send the result (UOM details) in the response
+            data: uoms, // Send the result in the response
         });
     } catch (error) {
         console.error("Error fetching UOMs:", error); // Improved error logging
         res.status(500).json({
             message: "Error fetching UOMs", // Error message
-            error: error.message, // Optionally send the error message for debugging
-        });
-    }
-};
-
-
-// ====================================location master handler=====================================
-export const locationMasterHandler = async (req, res) => {
-    const { name, billprefix, subgroup, sales, account, dept, substore, remarks } = req.body;
-    if (!name || !billprefix || !subgroup || !sales || !account || !dept || !substore || !remarks) {
-        return res.status(200).json({
-            status: false,
-            message: "all fields are required"
-        })
-    }
-
-    // Function to get the last generated ID
-    const getLastCode = async () => {
-        const query = `
-            SELECT TOP 1 CODE FROM M_LOCATION ORDER BY CODE DESC
-        `;
-
-        const result = await executeQuery(query);
-
-        if (result.length > 0) {
-            return result[0].CODE; // Assuming CODE is stored as "001", "002", etc.
-        }
-
-        return null; // No previous code found
-    };
-
-    // Function to generate the next code
-    const generateNextCode = async () => {
-        const lastCode = await getLastCode();
-
-        if (!lastCode) {
-            return "001"; // First code if no records exist
-        }
-
-        // Convert to number, increment, and pad with leading zeros
-        const lastNumber = parseInt(lastCode, 10);
-        const nextNumber = lastNumber + 1;
-
-        return nextNumber.toString().padStart(3, "0"); // Ensures "001", "002", etc.
-    };
-
-    // Create a new item
-    const createItem = async (code, name, billprefix, subgroup, sales, account, dept, substore, remarks) => {
-        try {
-            const pool = await connectToDb();
-            const date = new Date(); // Use JavaScript Date object
-
-            // Define the SQL query and parameters
-            const query = "INSERT INTO M_LOCATION (CODE, DESCR, BILLPREFIX, ITEMSUBGRSC, SUSPSALES, ACCD, DEPTID, CUSTOMER, REMARKS, ACTIVE, CREATEDDATE, ULM, DLM) VALUES (@code, @name, @billprefix, @subgroup, @sales, @account, @dept, @substore, @remarks, @active, @createdDate, @ulm, @dlm)";
-
-            // Execute the query with properly bound parameters
-            const result = await pool.request()
-                .input("code", sql.VarChar, code)
-                .input("name", sql.VarChar, name)
-                .input("billprefix", sql.VarChar, billprefix)
-                .input("subgroup", sql.VarChar, subgroup)
-                .input("sales", sql.VarChar, sales)
-                .input("account", sql.VarChar, account)
-                .input("dept", sql.VarChar, dept)
-                .input("substore", sql.VarChar, substore)
-                .input("remarks", sql.VarChar, remarks)
-                .input("active", sql.Bit, 1)
-                .input("createdDate", sql.DateTime, date)
-                .input("ulm", sql.DateTime, date)
-                .input("dlm", sql.DateTime, date)
-                .query(query);
-            return result.rowsAffected;
-
-        } catch (error) {
-            console.error("Error:", error);
-        }
-    };
-
-    try {
-        // Generate the next ID
-        const nextCode = await generateNextCode();
-
-        // Call the function to create the item
-        const result = await createItem(nextCode, name, billprefix, subgroup, sales, account, dept, substore, remarks);
-        if (result) {
-            return res.status(200).json({
-                message: "Location successfully inserted",
-                data: { nextCode, name, billprefix, subgroup, sales, account, dept, substore, remarks },
-            });
-        }
-        else {
-            return res.status(200).json({
-                status: false,
-                message: "Location insertion failed",
-            });
-        }
-    } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({
-            message: "Error processing the request",
-        });
-    } finally {
-        // Ensure the connection is closed
-        await closeConnection();
-    }
-};
-
-
-// ====================================get location handler=====================================
-export const getlocation = async (req, res) => {
-    // Function to fetch all UOMs from the database
-    const getLoc = async () => {
-        const query = `
-            SELECT * FROM M_LOCATION
-        `;
-        const result = await executeQuery(query); // Fetch data using the query
-        return result;
-    };
-
-    try {
-        const locations = await getLoc(); // Await the result of the async function
-        res.status(200).json({
-            message: "Locations fetched successfully", // Success message
-            data: locations, // Send the result (UOM details) in the response
-        });
-    } catch (error) {
-        console.error("Error fetching locations:", error); // Improved error logging
-        res.status(500).json({
-            message: "Error fetching locations", // Error message
-            error: error.message, // Optionally send the error message for debugging
-        });
-    }
-};
-
-
-// ====================================tax master handler=====================================
-export const taxMasterHandler = async (req, res) => {
-    const { name, ledger, rate, type, scode, exempted, method, fromamt, toamt, parenttax, remarks } = req.body;
-    if (!name || !ledger || !rate || !type || !scode || !exempted || !method || !fromamt || !toamt || !parenttax || !remarks) {
-        return res.status(200).json({
-            status: false,
-            message: "all fields are required"
-        })
-    }
-
-    // Function to get the last generated ID
-    const getLastCode = async () => {
-        const query = `
-            SELECT TOP 1 TAX_ID FROM M_TAX ORDER BY TAX_ID DESC
-        `;
-
-        const result = await executeQuery(query);
-
-        if (result.length > 0) {
-            return result[0].TAX_ID; // Assuming CODE is stored as "001", "002", etc.
-        }
-
-        return null; // No previous code found
-    };
-
-    // Function to generate the next code
-    const generateNextCode = async () => {
-        const lastCode = await getLastCode();
-
-        if (!lastCode) {
-            return "001"; // First code if no records exist
-        }
-
-        // Convert to number, increment, and pad with leading zeros
-        const lastNumber = parseInt(lastCode, 10);
-        const nextNumber = lastNumber + 1;
-
-        return nextNumber.toString().padStart(3, "0"); // Ensures "001", "002", etc.
-    };
-
-    // Create a new item
-    const createItem = async (taxid, name, ledger, rate, type, scode, exempted, method, fromamt, toamt, parenttax, remarks) => {
-        try {
-            const pool = await connectToDb();
-            const date = new Date(); // Use JavaScript Date object
-
-            // Define the SQL query and parameters
-            const query = "INSERT INTO M_TAX (TAX_ID, SHORTNAME, DESCR, RATE, TYPE, ACCD, EXEMPTED, PER_AMT_TYPE, FROM_AMT_PER, TO_AMT_PER, P_TAX_ID, REMARKS, CREATEDDATE, ULM, DLM, ACTIVE) VALUES (@taxid, @name, @ledger, @rate, @type, @scode, @exempted, @method, @fromamt, @toamt, @parenttax, @remarks, @createdDate, @ulm, @dlm, @active)";
-
-            // Execute the query with properly bound parameters
-            const result = await pool.request()
-                .input("taxid", sql.VarChar, taxid)
-                .input("name", sql.VarChar, name)
-                .input("ledger", sql.VarChar, ledger)
-                .input("rate", sql.Decimal(10, 2), parseFloat(rate) || 0)
-                .input("type", sql.VarChar, type)
-                .input("scode", sql.VarChar, scode)
-                .input("exempted", sql.VarChar, exempted)
-                .input("method", sql.VarChar, method)
-                .input("fromamt", sql.Decimal(10, 2), parseFloat(fromamt) || 0)
-                .input("toamt", sql.Decimal(10, 2), parseFloat(toamt) || 0)
-                .input("parenttax", sql.VarChar, parenttax)
-                .input("remarks", sql.VarChar, remarks)
-                .input("createdDate", sql.DateTime, date)
-                .input("ulm", sql.DateTime, date)
-                .input("dlm", sql.DateTime, date)
-                .input("active", sql.Bit, 1)
-                .query(query);
-
-            return result.rowsAffected;
-
-        } catch (error) {
-            console.error("Error:", error);
-        }
-    };
-
-    try {
-        // Generate the next ID
-        const taxid = await generateNextCode();
-
-        // Call the function to create the item
-        const result = await createItem(taxid, name, ledger, rate, type, scode, exempted, method, fromamt, toamt, parenttax, remarks);
-        if (result) {
-            return res.status(200).json({
-                message: "Tax successfully inserted",
-                data: { taxid, name, ledger, rate, type, scode, exempted, method, fromamt, toamt, parenttax, remarks },
-            });
-        }
-        else {
-            return res.status(200).json({
-                status: false,
-                message: "Tax insertion failed",
-            });
-        }
-    } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({
-            message: "Error processing the request",
-        });
-    } finally {
-        // Ensure the connection is closed
-        await closeConnection();
-    }
-};
-
-
-// ====================================get tax handler=====================================
-export const getTax = async (req, res) => {
-    // Function to fetch all UOMs from the database
-    const getTax = async () => {
-        const query = `
-            SELECT * FROM M_TAX
-        `;
-        const result = await executeQuery(query); // Fetch data using the query
-        return result;
-    };
-
-    try {
-        const taxes = await getTax(); // Await the result of the async function
-        res.status(200).json({
-            message: "taxes fetched successfully", // Success message
-            data: taxes, // Send the result (UOM details) in the response
-        });
-    } catch (error) {
-        console.error("Error fetching taxes:", error); // Improved error logging
-        res.status(500).json({
-            message: "Error fetching taxes", // Error message
             error: error.message, // Optionally send the error message for debugging
         });
     }
@@ -1438,14 +1372,14 @@ export const supplierPricelistHandler = async (req, res) => {
         const result = await createItem(supplierID, itemcd, date, price);
         if (result) {
             return res.status(200).json({
-                message: "successfully inserted",
+                message: "price list successfully inserted",
                 data: { supplierID, itemcd, date, price },
             });
         }
         else {
             return res.status(200).json({
                 status: false,
-                message: "insertion failed",
+                message: "price list insertion failed",
             });
         }
     } catch (error) {
@@ -1460,9 +1394,75 @@ export const supplierPricelistHandler = async (req, res) => {
 };
 
 
-// // ====================================get supplier price list handler=====================================
+// ====================================supplier price list update=====================================
+export const supplierPriceListUpdate = async (req, res) => {
+    const { itemCD } = req.body;
+
+    if (!itemCD) {
+        return res.status(200).json({
+            status: false,
+            message: "itemCD is required"
+        })
+    }
+}
+
+
+// ====================================supplier price list delete=====================================
+export const supplierPriceListDelete = async (req, res) => {
+    const { itemCD } = req.body;
+
+    if (!itemCD) {
+        return res.status(400).json({
+            status: false,
+            message: "itemCD is required"
+        });
+    }
+
+    const getActive = async () => {
+        try {
+            const query = `SELECT ACTIVE FROM M_PRICELIST WHERE ITEMCD = @param0`;
+            const result = await executeQuery(query, [itemCD]);
+            return result.length ? result[0].ACTIVE : null;
+        } catch (error) {
+            console.error("Error fetching ACTIVE flag:", error);
+            throw error;
+        }
+    };
+
+    try {
+        const isActive = await getActive();
+
+        if (isActive === null) {
+            return res.status(404).json({
+                status: false,
+                message: "price list not found",
+            });
+        }
+
+        // Toggle ACTIVE flag (1 -> 0, 0 -> 1)
+        const newActiveStatus = isActive ? 0 : 1;
+        const updateQuery = `UPDATE M_PRICELIST SET ACTIVE = @param0 WHERE ITEMCD = @param1`;
+        await executeQuery(updateQuery, [newActiveStatus, itemCD]);
+
+        return res.status(200).json({
+            status: true,
+            message: `tax ACTIVE flag updated to ${newActiveStatus}`
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            status: false,
+            message: "Error processing the request",
+        });
+    } finally {
+        await closeConnection();
+    }
+};
+
+
+// ====================================get supplier price list handler=====================================
 export const getSupplierPriceList = async (req, res) => {
-    // Function to fetch all UOMs from the database
     const getSupplier = async () => {
         const query = `
             SELECT * FROM M_PRICELIST
@@ -1474,8 +1474,8 @@ export const getSupplierPriceList = async (req, res) => {
     try {
         const supplier = await getSupplier(); // Await the result of the async function
         res.status(200).json({
-            message: "supplier fetched successfully", // Success message
-            data: supplier, // Send the result (UOM details) in the response
+            message: "supplier price list fetched successfully", // Success message
+            data: supplier,
         });
     } catch (error) {
         console.error("Error fetching taxes:", error); // Improved error logging

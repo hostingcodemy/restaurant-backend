@@ -9,10 +9,10 @@ export const lastOrderno = async (req, res) => {
             SELECT TOP 1 PORDERNO FROM TFA_POHDR WHERE PORDERNO LIKE 'POR/%' ORDER BY PORDERNO DESC
         `;
 
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
 
         if (result.length > 0) {
-            return result[0].PORDERNO; // Assuming TAX_ID is stored as "REQ/00001/2024-2025"
+            return result[0].PORDERNO;
         }
 
         return null; // No previous code found
@@ -56,7 +56,7 @@ export const lastOrderno = async (req, res) => {
 };
 
 
-// ====================================new indent=====================================
+// ====================================new purchase order=====================================
 export const purchaseHandler = async (req, res) => {
     const { orderNo, date, reqNo, quotation, type, section, supplier, valid, orderDetails } = req.body;
 
@@ -116,7 +116,7 @@ export const purchaseHandler = async (req, res) => {
             const finyr = getFinancialYear();
 
             const insertPromises = orderDetails.map(async (detail) => {
-                const { itemCD, description, unit, qty, rate, amount, tax, tax2, tax3, disc } = detail; // Adjust fields as per your table schema
+                const { itemCD, description, unit, qty, rate, amount, tax, tax2, tax3, disc } = detail; // Adjust fields as per table schema
 
                 const query = `INSERT INTO TFA_PODTL 
                     (FINYR, PORDERNO, PORDERDT, ITEMCD, DTLDESCR, UOM, QTY, RATE, AMT, TAXAMNT, TAXAMNT2, TAXAMNT3, DISC) 
@@ -160,7 +160,7 @@ export const purchaseHandler = async (req, res) => {
 
         return res.status(200).json({
             status: true,
-            message: "Purchase successfully inserted",
+            message: "Purchase order successfully inserted",
             data: { orderNo, date, reqNo, quotation, type, section, supplier, orderDetails },
         });
     } catch (error) {
@@ -172,13 +172,12 @@ export const purchaseHandler = async (req, res) => {
 };
 
 
-
-// ====================================get all indent=====================================
+// ====================================get all purchase order=====================================
 export const allPurchase = async (req, res) => {
     // Function to fetch all headers from the database
     const getPoHdr = async () => {
         const query = `SELECT * FROM TFA_POHDR`;
-        return await fetchData(query); // Fetch all headers
+        return await executeQuery(query); // Fetch all headers
     };
 
     const getReqDetails = async () => {
@@ -186,11 +185,11 @@ export const allPurchase = async (req, res) => {
 
         const headersWithDetails = await Promise.all(
             allHeaders.map(async (item) => {
-                const query = `SELECT * FROM TFA_PODTL WHERE PORDERNO = @param1`;
-                const details = await fetchData(query, [item.PORDERNO]);
+                const query = `SELECT * FROM TFA_PODTL WHERE PORDERNO = @param0`;
+                const details = await executeQuery(query, [item.PORDERNO]);
 
                 return {
-                    ...allHeaders,
+                    ...item,
                     details, // Attach the details array to the header object
                 };
             })
@@ -204,7 +203,7 @@ export const allPurchase = async (req, res) => {
         const details = await getReqDetails(); // Await the result of the async function
         res.status(200).json({
             message: "purchase order fetched successfully", // Success message
-            data: details, // Send the result (UOM details) in the response
+            details, // Send the result in the response
         });
     } catch (error) {
         console.error("Error fetching:", error); // Improved error logging
@@ -217,20 +216,19 @@ export const allPurchase = async (req, res) => {
 
 
 
-// ====================================get all indent=====================================
+// ====================================get req purchase order=====================================
 export const reqPurchase = async (req, res) => {
-    // Function to fetch all UOMs from the database
     const { reqNo } = req.body;
     if (!reqNo) {
         return res.status(400).json({
             status: false,
-            message: "Order no is required",
+            message: "Purchase no is required",
         });
     }
-    console.log(reqNo);
+
     const getReqHdr = async () => {
-        const query = `SELECT * FROM TFA_POHDR WHERE PORDERNO = @param1`;
-        const result = await fetchData(query, [reqNo]); // Fetch the header
+        const query = `SELECT * FROM TFA_POHDR WHERE PORDERNO = @param0`;
+        const result = await executeQuery(query, [reqNo]); // Fetch the header
 
         return result.length > 0 ? result[0] : null; // Return the first header or null
     };
@@ -242,8 +240,8 @@ export const reqPurchase = async (req, res) => {
             return { error: "No header found for the given request number" };
         }
 
-        const query = `SELECT * FROM TFA_PODTL WHERE PORDERNO = @param1`;
-        const details = await fetchData(query, [reqNo]);
+        const query = `SELECT * FROM TFA_PODTL WHERE PORDERNO = @param0`;
+        const details = await executeQuery(query, [reqNo]);
 
         return {
             header,   // Keep header as an object
@@ -255,8 +253,8 @@ export const reqPurchase = async (req, res) => {
     try {
         const data = await getReqDetails(); // Await the result of the async function
         res.status(200).json({
-            message: "Order details fetched successfully", // Success message
-            data // Send the result (UOM details) in the response
+            message: "Purchase order details fetched successfully", // Success message
+            data // Send the result in the response
         });
     } catch (error) {
         console.error("Error fetching taxes:", error); // Improved error logging

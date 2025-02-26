@@ -9,10 +9,10 @@ export const lastReqno = async (req, res) => {
             SELECT TOP 1 STORESREQNO FROM TFA_REQUISITIONHDR WHERE STORESREQNO LIKE 'REQ/%' ORDER BY STORESREQNO DESC
         `;
 
-        const result = await fetchData(query);
+        const result = await executeQuery(query);
 
         if (result.length > 0) {
-            return result[0].STORESREQNO; // Assuming TAX_ID is stored as "REQ/00001/2024-2025"
+            return result[0].STORESREQNO;
         }
 
         return null; // No previous code found
@@ -170,13 +170,12 @@ export const indentHandler = async (req, res) => {
 };
 
 
-
 // ====================================get all indent=====================================
 export const allIndent = async (req, res) => {
     // Function to fetch all headers from the database
     const getReqHdr = async () => {
         const query = `SELECT * FROM TFA_REQUISITIONHDR`;
-        return await fetchData(query); // Fetch all headers
+        return await executeQuery(query); // Fetch all headers
     };
 
     const getReqDetails = async () => {
@@ -184,11 +183,11 @@ export const allIndent = async (req, res) => {
 
         const headersWithDetails = await Promise.all(
             allHeaders.map(async (item) => {
-                const query = `SELECT * FROM TFA_REQUISITIONDTL WHERE STORESREQNO = @param1`;
-                const details = await fetchData(query, [item.STORESREQNO]);
+                const query = `SELECT * FROM TFA_REQUISITIONDTL WHERE STORESREQNO = @param0`;
+                const details = await executeQuery(query, [item.STORESREQNO]);
 
                 return {
-                    ...allHeaders,
+                    ...item, // Spread the individual header
                     details, // Attach the details array to the header object
                 };
             })
@@ -197,27 +196,25 @@ export const allIndent = async (req, res) => {
         return headersWithDetails; // Return structured data
     };
 
-
     try {
         const details = await getReqDetails(); // Await the result of the async function
         res.status(200).json({
-            message: "requisition fetched successfully", // Success message
-            data: details, // Send the result (UOM details) in the response
+            message: "Requisition fetched successfully", // Success message
+            details, // Send the result in the response
         });
     } catch (error) {
-        console.error("Error fetching taxes:", error); // Improved error logging
+        console.error("Error fetching requisition:", error); // Improved error logging
         res.status(500).json({
-            message: "Error fetching taxes", // Error message
+            message: "Error fetching requisition", // Error message
             error: error.message, // Optionally send the error message for debugging
         });
     }
 };
 
 
-
 // ====================================get all indent=====================================
 export const reqIndent = async (req, res) => {
-    // Function to fetch all UOMs from the database
+    // Function to fetch all req indent from the database
     const { reqNo } = req.body;
     if (!reqNo) {
         return res.status(400).json({
@@ -227,8 +224,8 @@ export const reqIndent = async (req, res) => {
     }
     console.log(reqNo);
     const getReqHdr = async () => {
-        const query = `SELECT * FROM TFA_REQUISITIONHDR WHERE STORESREQNO = @param1`;
-        const result = await fetchData(query, [reqNo]); // Fetch the header
+        const query = `SELECT * FROM TFA_REQUISITIONHDR WHERE STORESREQNO = @param0`;
+        const result = await executeQuery(query, [reqNo]); // Fetch the header
 
         return result.length > 0 ? result[0] : null; // Return the first header or null
     };
@@ -241,8 +238,8 @@ export const reqIndent = async (req, res) => {
             return { error: "No header found for the given request number" };
         }
 
-        const query = `SELECT * FROM TFA_REQUISITIONDTL WHERE STORESREQNO = @param1`;
-        const details = await fetchData(query, [reqNo]);
+        const query = `SELECT * FROM TFA_REQUISITIONDTL WHERE STORESREQNO = @param0`;
+        const details = await executeQuery(query, [reqNo]);
 
         return {
             header,   // Keep header as an object
@@ -250,17 +247,16 @@ export const reqIndent = async (req, res) => {
         };
     };
 
-
     try {
         const data = await getReqDetails(); // Await the result of the async function
         res.status(200).json({
             message: "requisition fetched successfully", // Success message
-            data // Send the result (UOM details) in the response
+            data // Send the result in the response
         });
     } catch (error) {
-        console.error("Error fetching taxes:", error); // Improved error logging
+        console.error("Error fetching requisition:", error); // Improved error logging
         res.status(500).json({
-            message: "Error fetching taxes", // Error message
+            message: "Error fetching requisition", // Error message
             error: error.message, // Optionally send the error message for debugging
         });
     }

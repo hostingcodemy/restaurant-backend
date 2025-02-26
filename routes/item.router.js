@@ -1,29 +1,35 @@
 import express from 'express';
 import { upload } from '../middlewares/multer.middleware.js';
-import { itemMasterHandler, itemMasterDelete, getItems, itemGroupHandler, itemGroupDelete, allItemGroup, itemSubGroupHandler, itemSubGroupDelete, allItemSubGroup, itemUOMHandler, getItemUOM, locationMasterHandler, getlocation, taxMasterHandler, getTax, supplierPricelistHandler, getSupplierPriceList, itemCategoryHandler, allItemCategory, itemSubCategoryHandler, allItemSubCategory } from '../controllers/item.controller.js';
+import { itemMasterHandler, itemMasterDelete, getItems, itemGroupHandler, itemGroupUpdate, itemGroupDelete, allItemGroup, itemSubGroupHandler, itemSubGroupUpdate, itemSubGroupDelete, allItemSubGroup, itemUOMHandler, itemUOMUpdate, itemUOMDelete, getItemUOM, supplierPricelistHandler, supplierPriceListUpdate, supplierPriceListDelete, getSupplierPriceList, itemCategoryHandler, itemCategoryUpdate, itemCategoryDelete, allItemCategory, itemSubCategoryHandler, itemSubCategoryUpdate, itemSubCategoryDelete, allItemSubCategory, itemMasterUpdate } from '../controllers/item.controller.js';
 
 const itemRouter = express.Router();
 
-itemRouter.route('/item-master').post(itemMasterHandler).put(itemMasterDelete);
+itemRouter.post('/item-master', itemMasterHandler);
+itemRouter.route('/item-master-action').post(itemMasterUpdate).put(itemMasterDelete);
 itemRouter.get('/all-item', getItems);
-itemRouter.route('/item-group').post(itemGroupHandler).put(itemGroupDelete);
+
+itemRouter.post('/item-group', itemGroupHandler);
+itemRouter.route('/item-group-action').post(itemGroupUpdate).put(itemGroupDelete);
 itemRouter.get('/all-item-group', allItemGroup);
+
 itemRouter.post('/item-subgroup', itemSubGroupHandler);
-itemRouter.route('/item-subgroup').post(itemSubGroupHandler).put(itemSubGroupDelete);
+itemRouter.route('/item-subgroup-action').post(itemSubGroupUpdate).put(itemSubGroupDelete);
 itemRouter.get('/all-item-subgroup', allItemSubGroup);
 
 itemRouter.post('/item-category', itemCategoryHandler);
+itemRouter.route('/item-category-action').post(itemCategoryUpdate).put(itemCategoryDelete);
 itemRouter.get('/all-item-category', allItemCategory);
+
 itemRouter.post('/item-subcategory', itemSubCategoryHandler);
+itemRouter.route('/item-subcategory-action').post(itemSubCategoryUpdate).put(itemSubCategoryDelete);
 itemRouter.get('/all-item-subcategory', allItemSubCategory);
 
 itemRouter.post('/item-uom', itemUOMHandler);
+itemRouter.route('/item-uom-action').post(itemUOMUpdate).put(itemUOMDelete);
 itemRouter.get('/all-uom', getItemUOM);
-itemRouter.post('/location-master', locationMasterHandler);
-itemRouter.get('/all-location', getlocation);
-itemRouter.post('/tax-master', taxMasterHandler);
-itemRouter.get('/all-tax', getTax);
+
 itemRouter.post('/supplier-price', supplierPricelistHandler);
+itemRouter.route('/supplier-action').post(supplierPriceListUpdate).put(supplierPriceListDelete);
 itemRouter.get('/all-supplier-pricelist', getSupplierPriceList);
 
 export default itemRouter;

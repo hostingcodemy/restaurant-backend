@@ -55,6 +55,7 @@ const executeQuery = async (query, params = []) => {
     }
 };
 
+connectToDb();
 
 // Helper function to execute a stored procedure
 const executeStoredProcedure = async (procedureName, params = []) => {
